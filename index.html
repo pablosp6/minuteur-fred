@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Minuteur visuel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Minuteur">
+<meta name="theme-color" content="#eef0ec">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#eef0ec;color:#1f2a33;font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#dial{position:absolute}
+#svg{display:block;width:100%;height:100%}
+#tm{font-variant-numeric:tabular-nums;-webkit-font-feature-settings:"tnum";font-feature-settings:"tnum"}
+#controls{position:absolute;left:0;right:0;bottom:22px;bottom:calc(22px + constant(safe-area-inset-bottom));bottom:calc(22px + env(safe-area-inset-bottom));text-align:center}
+.btn{display:inline-block;box-sizing:border-box;min-width:170px;height:72px;margin:6px 8px;padding:0 28px;border:0;border-radius:36px;font:600 26px -apple-system,"Helvetica Neue",Arial,sans-serif;cursor:pointer;-webkit-appearance:none;appearance:none}
+#go{background:#1f2a33;color:#fff}
+#rs{background:#dde1da;color:#1f2a33}
+.btn:active{opacity:.7}
+body.wide #controls{left:auto;right:24px;bottom:auto;top:50%;width:210px;-webkit-transform:translateY(-50%);transform:translateY(-50%)}
+body.wide .btn{display:block;width:100%;min-width:0;margin:12px 0}
+.ib{position:absolute;top:12px;top:calc(12px + constant(safe-area-inset-top));top:calc(12px + env(safe-area-inset-top));width:52px;height:52px;border:0;border-radius:26px;background:rgba(31,42,51,.07);cursor:pointer;padding:0;-webkit-appearance:none}
+.ib svg{width:26px;height:26px;stroke:#5b6771;fill:none;stroke-width:2;stroke-linecap:round}
+#bset{right:12px}#bfs{left:12px}
+#panel{display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(31,42,51,.5);z-index:9}
+#sheet{position:absolute;right:0;top:0;bottom:0;width:100%;max-width:460px;box-sizing:border-box;background:#fff;padding:22px 22px 40px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#sheet h2{margin:0 0 18px;font-size:26px}
+#sheet h3{margin:26px 0 10px;font-size:19px}
+.row{margin:0 0 12px;font-size:19px;white-space:nowrap}
+.row span{display:inline-block;min-width:78px}
+input[type=number]{width:74px;height:46px;box-sizing:border-box;font-size:20px;text-align:center;border:2px solid #cdd3cb;border-radius:12px;background:#fff;color:#1f2a33;-webkit-appearance:none}
+input[type=number]:disabled{background:#eef0ec;color:#8a959d}
+input[type=color]{width:56px;height:46px;padding:0;border:2px solid #cdd3cb;border-radius:12px;background:#fff;vertical-align:middle;margin-right:10px}
+input[type=text]{width:100px;height:46px;font-size:18px;border:2px solid #cdd3cb;border-radius:12px;padding:0 8px;box-sizing:border-box;margin-right:10px}
+.x{width:46px;height:46px;margin-left:8px;border:0;border-radius:23px;background:#eef0ec;font-size:20px;color:#5b6771;cursor:pointer;-webkit-appearance:none}
+.x:disabled{opacity:.3}
+.wb{display:block;width:100%;height:56px;margin:12px 0 0;border:0;border-radius:28px;background:#dde1da;color:#1f2a33;font:600 19px -apple-system,Arial,sans-serif;cursor:pointer;-webkit-appearance:none}
+.wb.dark{background:#1f2a33;color:#fff}
+.chk{display:block;font-size:20px;margin:6px 0}
+.chk input{width:26px;height:26px;vertical-align:middle;margin-right:10px}
+.note{font-size:15px;color:#6b7680;margin:8px 0 0;line-height:1.4}
+</style>
+</head>
+<body>
+<div id="dial">
+<svg id="svg" viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg">
+<circle cx="260" cy="260" r="258" fill="#fff" stroke="#dfe3dd" stroke-width="2"/>
+<g id="zd"></g><g id="zb"></g><g id="ticks"></g>
+<g id="needle"><line x1="260" y1="140" x2="260" y2="52" stroke="#1f2a33" stroke-width="7" stroke-linecap="round"/><circle cx="260" cy="44" r="9" fill="#1f2a33"/></g>
+<text id="tm" x="260" y="288" text-anchor="middle" font-size="88" font-weight="600" fill="#1f2a33">60:00</text>
+<text id="sub" x="260" y="334" text-anchor="middle" font-size="24" fill="#8a959d"></text>
+</svg>
+</div>
+<button class="ib" id="bfs" aria-label="Plein écran"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+<button class="ib" id="bset" aria-label="Réglages"><svg viewBox="0 0 24 24"><path d="M3 7h10M17 7h4M3 17h4M11 17h10"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
+<div id="controls"><button class="btn" id="go">Démarrer</button><button class="btn" id="rs">Réinitialiser</button></div>
+
+<div id="panel"><div id="sheet">
+<h2>Réglages</h2>
+<h3>Durée totale</h3>
+<div class="row"><input type="number" id="dur" inputmode="numeric" min="1" max="180"> minutes (1 à 180)</div>
+<h3>Zones de couleur</h3>
+<div id="zones"></div>
+<button class="wb" id="addz">Ajouter une zone</button>
+<p class="note">Chaque zone va du seuil précédent jusqu’au seuil indiqué, en minutes restantes. Si le sélecteur de couleur n’apparaît pas sur votre iOS, saisissez un code comme #3aa76d.</p>
+<h3>Fin du compte à rebours</h3>
+<label class="chk"><input type="checkbox" id="snd"> Signal sonore</label>
+<button class="wb" id="rst">Rétablir les réglages d’origine</button>
+<button class="wb dark" id="close">Fermer</button>
+</div></div>
+
+<script>
+(function(){
+var KEY='minuteurVisuel1',NS='http://www.w3.org/2000/svg',C=260,RI=140,RO=200;
+var DEF={d:60,sound:true,zones:[{end:15,color:'#3aa76d'},{end:5,color:'#f0902b'},{end:0,color:'#d9443b'}]};
+function $(i){return document.getElementById(i)}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.d>0&&s.zones&&s.zones.length)return s}catch(e){}return clone(DEF)}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
+var st=load(),running=false,finished=false,remMs,endAt=0,timer=null,wl=null,ac=null,bright=[];
+
+function normalize(){
+  var D=st.d,z=st.zones,i;
+  for(i=0;i<z.length;i++){var e=parseFloat(z[i].end);if(isNaN(e)||e<0)e=0;z[i].end=Math.min(e,D-0.5)}
+  z.sort(function(a,b){return b.end-a.end});
+  z[z.length-1].end=0;
+}
+function mk(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e}
+function pt(r,a){var t=a*Math.PI/180;return (C+r*Math.sin(t)).toFixed(2)+' '+(C-r*Math.cos(t)).toFixed(2)}
+function sector(a1,a2){
+  if(a2-a1>=360)a2=a1+359.99;
+  var l=(a2-a1>180)?1:0;
+  return 'M'+pt(RO,a1)+'A'+RO+' '+RO+' 0 '+l+' 1 '+pt(RO,a2)+'L'+pt(RI,a2)+'A'+RI+' '+RI+' 0 '+l+' 0 '+pt(RI,a1)+'Z';
+}
+function buildDial(){
+  var D=st.d,z=st.zones,i;
+  $('zd').innerHTML='';$('zb').innerHTML='';$('ticks').innerHTML='';bright=[];
+  for(i=0;i<z.length;i++){
+    var top=i?z[i-1].end:D,lo=z[i].end;
+    if(top>lo)mk('path',{d:sector(lo/D*360,top/D*360),fill:z[i].color,opacity:'0.2'},$('zd'));
+    bright.push(mk('path',{fill:z[i].color},$('zb')));
+  }
+  var ts=D<=60?1:5,ls=D<=60?5:(D<=120?10:20);
+  for(var m=0;m<D;m+=ts){
+    var a=m/D*360,major=(m%ls===0),r2=major?224:214,p1=pt(206,a).split(' '),p2=pt(r2,a).split(' ');
+    mk('line',{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],stroke:major?'#1f2a33':'#9aa4ab','stroke-width':major?4:2},$('ticks'));
+    if(major&&(m===0||a<348)){
+      var q=pt(242,a).split(' '),t=mk('text',{x:q[0],y:q[1],'text-anchor':'middle',dy:'.35em','font-size':'21','font-weight':'600',fill:'#1f2a33'},$('ticks'));
+      t.textContent=m===0?D:m;
+    }
+  }
+  draw();
+}
+function rem(){return running?Math.max(0,endAt-Date.now()):remMs}
+function draw(){
+  var D=st.d,z=st.zones,r=rem()/60000,i;
+  for(i=0;i<z.length;i++){
+    var top=i?z[i-1].end:D,lo=z[i].end,hi=Math.min(top,r);
+    bright[i].setAttribute('d',hi>lo?sector(lo/D*360,hi/D*360):'');
+  }
+  $('needle').setAttribute('transform','rotate('+(Math.min(r,D)/D*360).toFixed(2)+' '+C+' '+C+')');
+  var s=Math.ceil(rem()/1000),mm=Math.floor(s/60),ss=s%60,txt=(mm<10?'0':'')+mm+':'+(ss<10?'0':'')+ss;
+  var tm=$('tm');tm.textContent=txt;tm.setAttribute('font-size',txt.length>5?70:88);
+  $('sub').textContent=finished?'Terminé':(!running&&rem()<D*60000?'En pause':'');
+  $('go').textContent=running?'Pause':(!finished&&rem()<D*60000?'Reprendre':'Démarrer');
+}
+function unlockAudio(){try{var A=window.AudioContext||window.webkitAudioContext;if(A&&!ac)ac=new A();if(ac&&ac.resume)ac.resume()}catch(e){}}
+function beep(){
+  if(!st.sound||!ac)return;
+  try{for(var i=0;i<3;i++){
+    var t=ac.currentTime+i*0.5,o=ac.createOscillator(),g=ac.createGain();
+    o.frequency.value=880;o.connect(g);g.connect(ac.destination);
+    g.gain.setValueAtTime(0.35,t);g.gain.setValueAtTime(0.0001,t+0.3);
+    if(o.start)o.start(t);else o.noteOn(t);
+    if(o.stop)o.stop(t+0.32);else o.noteOff(t+0.32);
+  }}catch(e){}
+}
+function lock(){try{if(navigator.wakeLock&&navigator.wakeLock.request)navigator.wakeLock.request('screen').then(function(s){wl=s}).catch(function(){})}catch(e){}}
+function unlock(){try{if(wl){wl.release();wl=null}}catch(e){}}
+function tick(){if(rem()<=0)finish();else draw()}
+function start(){
+  if(finished)reset();
+  if(running)return;
+  if(remMs<=0)remMs=st.d*60000;
+  unlockAudio();endAt=Date.now()+remMs;running=true;lock();
+  clearInterval(timer);timer=setInterval(tick,200);draw();
+}
+function pause(){remMs=rem();running=false;clearInterval(timer);unlock();draw()}
+function finish(){running=false;remMs=0;finished=true;clearInterval(timer);unlock();draw();beep()}
+function reset(){running=false;finished=false;clearInterval(timer);unlock();remMs=st.d*60000;draw()}
+
+function layout(){
+  var W=window.innerWidth,H=window.innerHeight,wide=W>H*1.25,d=$('dial'),size,l,t;
+  document.body.className=wide?'wide':'';
+  if(wide){size=Math.min(H-24,W-260);l=(W-240-size)/2;t=(H-size)/2}
+  else{size=Math.min(W-16,H-190);l=(W-size)/2;t=Math.max(56,(H-110-size)/2)}
+  if(size<120)size=120;
+  d.style.width=d.style.height=size+'px';d.style.left=Math.max(4,l)+'px';d.style.top=t+'px';
+}
+
+function renderSettings(){
+  var z=st.zones,h='',i;
+  $('dur').value=st.d;$('snd').checked=!!st.sound;
+  for(i=0;i<z.length;i++){
+    var last=(i===z.length-1),top=i?z[i-1].end:st.d;
+    h+='<div class="row"><input type="color" data-k="c" data-i="'+i+'" value="'+z[i].color+'"><span>De '+top+' à</span><input type="number" inputmode="decimal" data-k="e" data-i="'+i+'" value="'+z[i].end+'" min="0"'+(last?' disabled':'')+'> min<button class="x" data-del="'+i+'"'+(z.length<2?' disabled':'')+' aria-label="Supprimer">✕</button></div>';
+  }
+  $('zones').innerHTML=h;
+}
+function apply(rebuild){normalize();save();renderSettings();buildDial()}
+$('zones').addEventListener('change',function(e){
+  var t=e.target,i=t.getAttribute('data-i');if(i===null)return;
+  if(t.getAttribute('data-k')==='c')st.zones[i].color=t.value;else st.zones[i].end=parseFloat(t.value);
+  apply();
+});
+$('zones').addEventListener('input',function(e){
+  var t=e.target;if(t.getAttribute('data-k')!=='c')return;
+  st.zones[t.getAttribute('data-i')].color=t.value;buildDial();
+});
+$('zones').addEventListener('click',function(e){
+  var i=e.target.getAttribute('data-del');if(i===null||st.zones.length<2)return;
+  st.zones.splice(parseInt(i,10),1);apply();
+});
+$('addz').onclick=function(){
+  var z=st.zones,prev=z.length>1?z[z.length-2].end:st.d,ne=Math.floor(prev/2);
+  if(ne<=0)ne=prev/2;
+  z.splice(z.length-1,0,{end:ne,color:'#4a7bd0'});apply();
+};
+$('dur').addEventListener('change',function(){
+  var v=parseInt(this.value,10);if(isNaN(v))v=st.d;
+  st.d=Math.max(1,Math.min(180,v));normalize();save();reset();renderSettings();buildDial();
+});
+$('snd').onchange=function(){st.sound=this.checked;save();if(this.checked)unlockAudio()};
+$('rst').onclick=function(){st=clone(DEF);save();reset();renderSettings();buildDial()};
+$('bset').onclick=function(){renderSettings();$('panel').style.display='block'};
+$('close').onclick=function(){$('panel').style.display='none'};
+$('panel').addEventListener('click',function(e){if(e.target===this)this.style.display='none'});
+$('go').onclick=function(){if(running)pause();else start()};
+$('rs').onclick=reset;
+
+var de=document.documentElement,rf=de.requestFullscreen||de.webkitRequestFullscreen;
+if(!rf)$('bfs').style.display='none';
+$('bfs').onclick=function(){
+  var on=document.fullscreenElement||document.webkitFullscreenElement;
+  if(on){(document.exitFullscreen||document.webkitExitFullscreen).call(document)}else{rf.call(de)}
+};
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden)return;
+  if(running){tick();lock()}else draw();
+});
+window.addEventListener('resize',layout);
+window.addEventListener('orientationchange',function(){setTimeout(layout,250)});
+
+function icon(){
+  try{
+    var c=document.createElement('canvas');c.width=c.height=180;var x=c.getContext('2d');
+    x.fillStyle='#eef0ec';x.fillRect(0,0,180,180);
+    var seg=[[0,0.08,'#d9443b'],[0.08,0.25,'#f0902b'],[0.25,1,'#3aa76d']];
+    x.lineWidth=30;
+    for(var i=0;i<3;i++){x.strokeStyle=seg[i][2];x.beginPath();x.arc(90,90,62,-Math.PI/2+seg[i][0]*2*Math.PI,-Math.PI/2+seg[i][1]*2*Math.PI);x.stroke()}
+    x.strokeStyle='#1f2a33';x.lineWidth=8;x.lineCap='round';x.beginPath();x.moveTo(90,90);x.lineTo(90,30);x.stroke();
+    var l=document.createElement('link');l.rel='apple-touch-icon';l.href=c.toDataURL('image/png');document.head.appendChild(l);
+  }catch(e){}
+}
+
+normalize();remMs=st.d*60000;icon();layout();buildDial();
+})();
+</script>
+</body>
+</html>
